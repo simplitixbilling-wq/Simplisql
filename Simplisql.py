@@ -50,7 +50,7 @@ from utils import (
 try:
     if not hasattr(QTextFormat, 'FullWidthSelection') and hasattr(QTextFormat, 'Property'):
         QTextFormat.FullWidthSelection = QTextFormat.Property.FullWidthSelection
-except Exception:
+except (AttributeError, TypeError):
     # If anything goes wrong, don't crash on import; the code will fail later where used.
     pass
 
@@ -94,8 +94,8 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             with open(self.query_file_path, "r") as f:
                 self.saved_queries = json.load(f)
 
-        except Exception as e:
-            print(f"[ERROR] Failed to initialize saved queries: {e}")
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as e:
+            logger.exception("Failed to initialize saved queries")
             self.saved_queries = {}
             self.query_file_path = os.path.join(self.app_dir, "Auto_Workflow", "saved_queries.json")
 
@@ -187,8 +187,8 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             self.conn.create_function('FILE_NAME_NO_EXT', file_name_no_ext, return_type='VARCHAR')
             self.conn.create_function('FILE_EXTENSION', file_extension, return_type='VARCHAR')
             print("✅ Custom file path functions registered: FILE_BASENAME, FILE_DIRNAME, FILE_NAME_NO_EXT, FILE_EXTENSION")
-        except Exception as e:
-            print(f"⚠️ Warning: Could not register custom functions: {e}")
+        except (duckdb.Error, TypeError, ValueError) as e:
+            logger.warning("Could not register custom SQL file functions: %s", e)
 
     # --- Workflow persistence helpers ---
     def load_workflows(self):
@@ -197,8 +197,8 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             if os.path.exists(self.workflows_path):
                 with open(self.workflows_path, 'r') as f:
                     return json.load(f)
-        except Exception as e:
-            print(f"Failed to load workflows: {e}")
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as e:
+            logger.warning("Failed to load workflows from %s: %s", self.workflows_path, e)
         return []
 
     def save_workflows(self):
@@ -206,8 +206,8 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
         try:
             with open(self.workflows_path, 'w') as f:
                 json.dump(self.workflows, f, indent=2)
-        except Exception as e:
-            print(f"Failed to save workflows: {e}")
+        except (OSError, TypeError, ValueError) as e:
+            logger.error("Failed to save workflows to %s: %s", self.workflows_path, e)
 
     def add_workflow(self, workflow_spec):
         """Add a new workflow to the list"""
@@ -248,8 +248,8 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             if os.path.exists(self.ai_config_path):
                 with open(self.ai_config_path, 'r') as f:
                     return json.load(f)
-        except Exception as e:
-            print(f"Failed to load AI config: {e}")
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as e:
+            logger.warning("Failed to load AI config from %s: %s", self.ai_config_path, e)
         return {
             'openai_key': '',
             'anthropic_key': '',
@@ -262,8 +262,8 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
         try:
             with open(self.ai_config_path, 'w') as f:
                 json.dump(self.ai_config, f, indent=2)
-        except Exception as e:
-            print(f"Failed to save AI config: {e}")
+        except (OSError, TypeError, ValueError) as e:
+            logger.error("Failed to save AI config to %s: %s", self.ai_config_path, e)
 
     def load_ai_chat_history(self):
         """Load AI chat history from JSON file"""
@@ -271,8 +271,8 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             if os.path.exists(self.ai_chat_history_path):
                 with open(self.ai_chat_history_path, 'r') as f:
                     return json.load(f)
-        except Exception as e:
-            print(f"Failed to load AI chat history: {e}")
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as e:
+            logger.warning("Failed to load AI chat history from %s: %s", self.ai_chat_history_path, e)
         return []
 
     def save_ai_chat_history(self):
@@ -280,8 +280,8 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
         try:
             with open(self.ai_chat_history_path, 'w') as f:
                 json.dump(self.ai_chat_history, f, indent=2)
-        except Exception as e:
-            print(f"Failed to save AI chat history: {e}")
+        except (OSError, TypeError, ValueError) as e:
+            logger.error("Failed to save AI chat history to %s: %s", self.ai_chat_history_path, e)
 
 
 
@@ -338,7 +338,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                     self.current_theme = settings.get('theme', 'dark')
             else:
                 self.current_theme = 'dark'
-        except Exception:
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
             self.current_theme = 'dark'
 
     def save_theme_settings(self):
@@ -347,8 +347,8 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             settings = {'theme': self.current_theme}
             with open(self.theme_settings_file, 'w') as f:
                 json.dump(settings, f, indent=2)
-        except Exception as e:
-            print(f"Failed to save theme settings: {e}")
+        except (OSError, TypeError, ValueError) as e:
+            logger.error("Failed to save theme settings to %s: %s", self.theme_settings_file, e)
 
     def toggle_theme(self):
         """Toggle between dark and light themes"""
@@ -382,7 +382,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                     self.results_table.horizontalHeader().setStretchLastSection(False)
                     # Allow horizontal scrolling when columns exceed viewport
                     self.results_table.setHorizontalScrollMode(QTableView.ScrollMode.ScrollPerPixel)
-                except Exception:
+                except (AttributeError, RuntimeError, TypeError):
                     pass
             else:
                 # Show left editor and restore layout
@@ -396,10 +396,10 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                     self.results_table.horizontalHeader().setStretchLastSection(False)
                     # restore horizontal scroll mode to default
                     self.results_table.setHorizontalScrollMode(QTableView.ScrollMode.ScrollPerItem)
-                except Exception:
+                except (AttributeError, RuntimeError, TypeError):
                     pass
-        except Exception as e:
-            print(f"Error toggling results maximize: {e}")
+        except (AttributeError, RuntimeError, TypeError) as e:
+            logger.error("Error toggling results maximize: %s", e)
 
     def upload_files(self):
         file_paths, _ = QFileDialog.getOpenFileNames(
@@ -753,7 +753,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                         """
                         total_rows_result = self.conn.execute(total_rows_query).fetchone()
                         expected_total_rows = total_rows_result[0] if total_rows_result else 0
-                    except:
+                    except (duckdb.Error, OSError, ValueError, TypeError):
                         # If counting fails, we'll skip error tracking
                         expected_total_rows = None
                     
@@ -816,7 +816,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                     print(f"✅ File Saved at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
                     print(f"⏱️ Total Execution Time: {total_time:.2f} seconds ({total_time/60:.2f} minutes)")
                     
-                except Exception as e:
+                except (duckdb.Error, OSError, ValueError, TypeError, UnicodeDecodeError) as e:
                     print(f"❌ Failed to process {file}: {e}")
                     
                     # Try to automatically fix with selective column conversion
@@ -849,9 +849,9 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                             )
                             continue  # Move to next file
                         else:
-                            raise Exception(result['error'])
+                            raise RuntimeError(result['error'])
                             
-                    except Exception as auto_fix_error:
+                    except (duckdb.Error, OSError, ValueError, TypeError, RuntimeError) as auto_fix_error:
                         print(f"⚠️ Auto-fix failed: {auto_fix_error}")
                         
                         # Fall back to manual user choice
@@ -898,7 +898,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                     
                 try:
                     sheet_names = pd.ExcelFile(file).sheet_names
-                except Exception as e:
+                except (ValueError, OSError, ImportError) as e:
                     print(f"Failed to read Excel file {file}: {e}")
                     skipped_files.append(file)
                     continue
@@ -969,7 +969,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                         f"Sheet '{chosen_sheet}' from '{os.path.basename(file)}' saved as Parquet!",
                         icon=QMessageBox.Icon.Information,
                     )
-                except Exception as e:
+                except (duckdb.Error, OSError, ValueError, TypeError) as e:
                     print(f"Failed to convert Excel sheet for {file}: {e}")
                     
                     # Try to automatically fix by detecting problematic columns
@@ -1005,7 +1005,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                                 icon=QMessageBox.Icon.Information
                             )
                             continue
-                        except Exception as type_error:
+                        except (ValueError, TypeError, OSError, duckdb.Error) as type_error:
                             # Types failed, need to identify which columns
                             print(f"⚠️ Type detection failed: {type_error}")
                             
@@ -1015,7 +1015,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                                     # Try to convert this specific column
                                     test_df = pd.read_excel(file, sheet_name=chosen_sheet, skiprows=skip_n if skip_n > 0 else None, usecols=[col])
                                     # If conversion works, column is fine
-                                except:
+                                except (ValueError, TypeError, OSError):
                                     problematic_columns.append(col)
                             
                             if problematic_columns:
@@ -1043,7 +1043,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                                 # Different kind of error
                                 raise e
                     
-                    except Exception as auto_fix_error:
+                    except (ValueError, TypeError, OSError, duckdb.Error) as auto_fix_error:
                         print(f"⚠️ Auto-fix failed: {auto_fix_error}")
                         
                         # Fall back to manual user choice
@@ -1080,7 +1080,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                 finally:
                     try:
                         self.conn.unregister("temp_table")
-                    except Exception:
+                    except (duckdb.Error, RuntimeError, AttributeError):
                         pass
 
             # --- XML Processing ---
@@ -1106,18 +1106,18 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                     self.conn.execute(f"COPY _temp_upload TO '{parquet_file}' (FORMAT 'parquet', COMPRESSION 'SNAPPY');")
                     try:
                         self.conn.unregister("_temp_upload")
-                    except Exception:
+                    except (duckdb.Error, RuntimeError, AttributeError):
                         pass
-                except Exception:
+                except (duckdb.Error, RuntimeError, TypeError, ValueError):
                     try:
                         tmp_table = f"temp_xml_fallback_{int(time.time())}_{uuid.uuid4().hex[:8]}"
                         self.conn.register(tmp_table, df)
                         self.conn.execute(f"COPY {tmp_table} TO '{parquet_file}' (FORMAT 'parquet', COMPRESSION 'SNAPPY');")
                         try:
                             self.conn.unregister(tmp_table)
-                        except Exception:
+                        except (duckdb.Error, RuntimeError, AttributeError):
                             pass
-                    except Exception as e:
+                    except (duckdb.Error, RuntimeError, TypeError, ValueError) as e:
                         print(f"XML fallback parquet write failed: {e}")
                 processed = True
 
@@ -1143,7 +1143,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                         self.conn.execute("PRAGMA threads=8;")
                         self.conn.execute(f"COPY (SELECT * FROM read_json_auto('{file}')) TO '{parquet_file}' (FORMAT 'parquet', COMPRESSION 'SNAPPY');")
                         print(f"✅ Direct DuckDB JSON to parquet conversion completed")
-                    except Exception as e1:
+                    except (duckdb.Error, OSError, ValueError, TypeError) as e1:
                         print(f"⚠️ Direct conversion failed, trying register method: {e1}")
                         # Fallback: load to DataFrame then use DuckDB
                         try:
@@ -1153,7 +1153,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                             self.conn.execute(f"COPY {temp_table} TO '{parquet_file}' (FORMAT 'parquet', COMPRESSION 'SNAPPY');")
                             self.conn.unregister(temp_table)
                             print(f"✅ Fallback DuckDB conversion completed")
-                        except Exception as e2:
+                        except (duckdb.Error, OSError, ValueError, TypeError) as e2:
                             print(f"⚠️ DuckDB fallback failed: {e2}")
                             try:
                                 tmp_table = f"temp_json_fallback_{int(time.time())}_{uuid.uuid4().hex[:8]}"
@@ -1161,12 +1161,12 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                                 self.conn.execute(f"COPY {tmp_table} TO '{parquet_file}' (FORMAT 'parquet', COMPRESSION 'SNAPPY');")
                                 try:
                                     self.conn.unregister(tmp_table)
-                                except Exception:
+                                except (duckdb.Error, RuntimeError, AttributeError):
                                     pass
-                            except Exception as fallback_err:
+                            except (duckdb.Error, OSError, ValueError, TypeError) as fallback_err:
                                 print(f"JSON fallback parquet write failed: {fallback_err}")
                     processed = True
-                except Exception as e:
+                except (duckdb.Error, OSError, ValueError, TypeError) as e:
                     print(f"Failed to convert JSON to Parquet for {file}: {e}")
 
             # --- ZIP Processing ---
@@ -1189,7 +1189,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                             # Fallback to generic refresh
                             self.display_existing_files()
                         processed = True
-                except Exception as e:
+                except (OSError, zipfile.BadZipFile, ValueError, TypeError) as e:
                     print(f"Failed to process ZIP file {file}: {e}")
                     MainWindow.show_styled_message_box(
                         self,
@@ -1206,9 +1206,9 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                     self.display_existing_files(selected=sel_name)
                     try:
                         self.Parquet_view_describe(sel_name)
-                    except Exception:
+                    except (duckdb.Error, ValueError, TypeError):
                         pass
-                except Exception:
+                except (AttributeError, RuntimeError, TypeError):
                     self.display_existing_files()
 
             # Update progress
@@ -1277,9 +1277,9 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                     self.display_existing_files(selected=sel_name)
                     try:
                         self.Parquet_view_describe(sel_name)
-                    except Exception:
+                    except (duckdb.Error, ValueError, TypeError):
                         pass
-                except Exception:
+                except (AttributeError, RuntimeError, TypeError):
                     self.display_existing_files()
                 
             except Exception as e:
@@ -1355,7 +1355,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                     for table in temp_tables:
                         try:
                             self.conn.unregister(table)
-                        except Exception:
+                        except (duckdb.Error, RuntimeError, AttributeError):
                             pass
                     
                     end_merge = time.time()
@@ -1373,9 +1373,9 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                         self.display_existing_files(selected=sel_name)
                         try:
                             self.Parquet_view_describe(sel_name)
-                        except Exception:
+                        except (duckdb.Error, ValueError, TypeError):
                             pass
-                    except Exception:
+                    except (AttributeError, RuntimeError, TypeError):
                         self.display_existing_files()
                 else:
                     print("❌ No Excel files could be loaded for merging")
@@ -1435,7 +1435,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                     for table in temp_tables:
                         try:
                             self.conn.unregister(table)
-                        except Exception:
+                        except (duckdb.Error, RuntimeError, AttributeError):
                             pass
                     
                     end_merge = time.time()
@@ -1453,14 +1453,14 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                         self.display_existing_files(selected=sel_name)
                         try:
                             self.Parquet_view_describe(sel_name)
-                        except Exception:
+                        except (duckdb.Error, ValueError, TypeError):
                             pass
-                    except Exception:
+                    except (AttributeError, RuntimeError, TypeError):
                         self.display_existing_files()
                 else:
                     print("❌ No XML files could be loaded for merging")
                     
-            except Exception as e:
+            except (duckdb.Error, OSError, ValueError, TypeError) as e:
                 print(f"❌ Failed to merge XML files: {e}")
                 MainWindow.show_styled_message_box(
                     self,
@@ -1515,12 +1515,12 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                     self.display_existing_files(selected=sel_name)
                     try:
                         self.Parquet_view_describe(sel_name)
-                    except Exception:
+                    except (duckdb.Error, ValueError, TypeError):
                         pass
-                except Exception:
+                except (AttributeError, RuntimeError, TypeError):
                     self.display_existing_files()
                 
-            except Exception as e:
+            except (duckdb.Error, OSError, ValueError, TypeError) as e:
                 print(f"❌ Failed to merge JSON files: {e}")
                 MainWindow.show_styled_message_box(
                     self,
@@ -1545,11 +1545,11 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                             self.display_existing_files(selected=sel_name)
                             try:
                                 self.Parquet_view_describe(sel_name)
-                            except Exception:
+                            except (duckdb.Error, ValueError, TypeError):
                                 pass
-                        except Exception:
+                        except (AttributeError, RuntimeError, TypeError):
                             self.display_existing_files()
-                except Exception as e:
+                except (OSError, zipfile.BadZipFile, ValueError, TypeError) as e:
                     print(f"❌ Error processing ZIP {zip_file}: {e}")
                     continue
 
@@ -1744,7 +1744,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                         'converted_columns': problematic_columns
                     }
                     
-                except Exception as selective_error:
+                except (duckdb.Error, OSError, ValueError, TypeError) as selective_error:
                     print(f"⚠️ Selective conversion failed: {selective_error}")
                     # Fall back to all VARCHAR
                     return self._fallback_to_all_varchar(file_path, delimiter, skip_param, parquet_file)
@@ -1752,7 +1752,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                 # If most columns are problematic, fall back to all VARCHAR
                 return self._fallback_to_all_varchar(file_path, delimiter, skip_param, parquet_file)
                 
-        except Exception as e:
+        except (duckdb.Error, OSError, ValueError, TypeError) as e:
             return {
                 'success': False,
                 'error': f'Analysis failed: {str(e)}'
@@ -1886,7 +1886,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                         # Mark as in-progress so other code paths skip it
                         try:
                             self._zip_processing_entries.add(src_norm)
-                        except Exception:
+                        except (AttributeError, TypeError):
                             pass
 
                         # Process file from ZIP. Try streaming CSV -> Parquet (no full temp CSV).
@@ -1905,7 +1905,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                                         print(f"ℹ️ Detected recent file mtime for {parquet_filename}; treating as created in this session")
                                         try:
                                             recently_created_parquets.add(parquet_key)
-                                        except Exception:
+                                        except (AttributeError, TypeError):
                                             pass
                                     else:
                                         overwrite = MainWindow.show_styled_message_box(
@@ -1918,7 +1918,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                                         if overwrite != QMessageBox.StandardButton.Yes:
                                             print(f"⏭️ Skipped {filename} (file exists, user chose not to overwrite)")
                                             continue
-                                except Exception:
+                                except (OSError, ValueError, TypeError):
                                     overwrite = MainWindow.show_styled_message_box(
                                         self,
                                         "File Exists",
@@ -1954,13 +1954,13 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                                             )
                                             success = True
                                             print(f"✅ DuckDB processed CSV '{filename}' with multithreading")
-                                        except Exception as duckdb_error:
+                                        except (duckdb.Error, ValueError, TypeError) as duckdb_error:
                                             print(f"⚠️ DuckDB processing failed: {duckdb_error}, trying fallback")
                                             # Try fallback method
                                             result = self._fallback_to_all_varchar(tmp_csv_path, csv_delimiter, "", parquet_path)
                                             success = result.get('success', False)
 
-                                    except Exception as e:
+                                    except (OSError, ValueError, TypeError) as e:
                                         print(f"❌ Temp CSV extraction failed for {filename}: {e}")
 
                                 elif filename.lower().endswith('.json'):
@@ -1983,10 +1983,10 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                                             )
                                             success = True
                                             print(f"✅ DuckDB processed JSON '{filename}' with multithreading")
-                                        except Exception as duckdb_error:
+                                        except (duckdb.Error, ValueError, TypeError) as duckdb_error:
                                             print(f"⚠️ DuckDB JSON processing failed: {duckdb_error}")
 
-                                    except Exception as e:
+                                    except (OSError, ValueError, TypeError) as e:
                                         print(f"❌ Temp JSON extraction failed for {filename}: {e}")
 
                                 elif filename.lower().endswith(('.xlsx', '.xls')):
@@ -2013,17 +2013,17 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                                         finally:
                                             try:
                                                 self.conn.unregister(tmp_table)
-                                            except Exception:
+                                            except (duckdb.Error, RuntimeError, AttributeError):
                                                 pass
 
-                                    except Exception as e:
+                                    except (OSError, ValueError, TypeError, duckdb.Error) as e:
                                         print(f"❌ Temp Excel extraction failed for {filename}: {e}")
 
                                 else:
                                     # Unsupported file type in ZIP
                                     print(f"⏭️ Skipping unsupported file type: {filename}")
                                     continue
-                        except Exception as e:
+                        except (OSError, ValueError, TypeError, duckdb.Error, zipfile.BadZipFile) as e:
                             print(f"❌ Error processing {filename} from ZIP: {e}")
                             success = False
                         finally:
@@ -2031,18 +2031,18 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                             if tmp_csv_path:
                                 try:
                                     os.unlink(tmp_csv_path)
-                                except Exception:
+                                except OSError:
                                     pass
 
                         if success:
                             processed_files.append(parquet_path)
                             try:
                                 self._processed_zip_entries.add(src_norm)
-                            except Exception:
+                            except (AttributeError, TypeError):
                                 pass
                             try:
                                 recently_created_parquets.add(os.path.basename(parquet_path).lower())
-                            except Exception:
+                            except (AttributeError, TypeError):
                                 pass
                             print(f"✅ Processed {filename} from ZIP -> {parquet_filename}")
                         else:
@@ -2051,10 +2051,10 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                         # Clear in-progress marker so retries or other runs can proceed
                         try:
                             self._zip_processing_entries.discard(src_norm)
-                        except Exception:
+                        except (AttributeError, TypeError):
                             pass
                                 
-                    except Exception as e:
+                    except (OSError, ValueError, TypeError, duckdb.Error, zipfile.BadZipFile) as e:
                         print(f"❌ Error processing {filename} from ZIP: {e}")
                         continue
                 
@@ -2067,7 +2067,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                         icon=QMessageBox.Icon.Information
                     )
                     
-        except Exception as e:
+        except (OSError, zipfile.BadZipFile, ValueError, TypeError) as e:
             print(f"❌ Error opening ZIP file: {e}")
             MainWindow.show_styled_message_box(
                 self,
@@ -2197,7 +2197,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             stack = ''.join(traceback.format_list(traceback.extract_stack(limit=6)[:-1]))
             cache_obj = getattr(self, '_zip_settings_cache', None)
             print(f"{time.time():.3f} 🗂️ Showing ZIP CSV settings dialog for '{cache_key}'. self_id={id(self)} cache_id={id(cache_obj) if cache_obj is not None else 'None'} Caller stack: \n{stack}")
-        except Exception:
+        except (AttributeError, RuntimeError, TypeError):
             pass
 
         # Show dialog
@@ -3125,7 +3125,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                 df = self._full_df[mask]
             # Redisplay filtered rows without losing the full copy
             self.populate_treeview(df, set_full=False)
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError, ValueError) as e:
             print("Filter error:", e)
 
     def _on_table_context_menu(self, pos):
@@ -3160,7 +3160,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             menu.addAction(filter_action)
 
             menu.exec(self.results_table.viewport().mapToGlobal(pos))
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError) as e:
             print("Context menu error:", e)
 
     def copy_selected_cells(self):
@@ -3185,7 +3185,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             if cur_cols:
                 lines.append('\t'.join(cur_cols))
             pyperclip.copy(' \n'.join(lines))
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError) as e:
             print("Copy error:", e)
 
     def copy_row(self):
@@ -3208,7 +3208,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                 vals.append(str(val) if val is not None else '')
             
             pyperclip.copy('\t'.join(vals))
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError) as e:
             print("Copy row error:", e)
 
     def copy_column(self, pos):
@@ -3246,10 +3246,10 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             try:
                 row_count = len(values) - 1  # Subtract 1 for header
                 print(f"Copied column '{col_name}' with {row_count} filtered values to clipboard")
-            except Exception:
+            except (AttributeError, RuntimeError, TypeError):
                 pass
                 
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError) as e:
             print("Copy column error:", e)
 
     def export_selected_rows(self):
@@ -3286,7 +3286,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             df = pd.DataFrame(rows_data)
             df.to_csv(file_path, index=False)
             MainWindow.show_styled_message_box(self, "Exported", f"Exported {len(rows_data)} visible rows to {os.path.basename(file_path)}", icon=QMessageBox.Icon.Information)
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError, ValueError, OSError) as e:
             MainWindow.show_styled_message_box(self, "Error", f"Failed to export: {e}", icon=QMessageBox.Icon.Critical)
 
     def show_column_stats(self):
@@ -3322,7 +3322,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             
             stats = " \n".join(formatted_lines)
             MainWindow.show_styled_message_box(self, f"Stats: {col_name}", f"<pre>{stats}</pre>", icon=QMessageBox.Icon.Information, text_color='white')
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError, ValueError) as e:
             MainWindow.show_styled_message_box(self, "Error", f"Failed to compute stats: {e}", icon=QMessageBox.Icon.Critical)
 
     def _filter_by_context_value(self, pos):
@@ -3349,7 +3349,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                 # Apply the filter automatically
                 self.apply_column_filter()
                 
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError, ValueError) as e:
             print("Filter by value error:", e)
 
     def apply_column_filter(self):
@@ -3366,7 +3366,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             # find column index in current model
             try:
                 col_idx = list(self._model._df.columns).index(col_name)
-            except Exception:
+            except (ValueError, AttributeError, TypeError):
                 col_idx = None
             
             text = self.filter_input.text() or ""
@@ -3386,7 +3386,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             operator = operator_map.get(operator_text, "contains")
             
             self._proxy.setFilter(col_idx, text, operator)
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError, ValueError) as e:
             print("Apply filter error:", e)
 
     def clear_column_filter(self):
@@ -3396,7 +3396,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
             self.filter_input.clear()
             self.filter_operator_combo.setCurrentText("contains")
             self._proxy.setFilter(None, "", "contains")
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError) as e:
             print("Clear filter error:", e)
 
     def enable_sorting_manually(self):
@@ -3440,7 +3440,7 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
                         self, "Success", "Sorting has been enabled. You can now click column headers to sort.",
                         icon=QMessageBox.Icon.Information
                     )
-        except Exception as e:
+        except (AttributeError, RuntimeError, TypeError) as e:
             print("Enable sorting error:", e)
 
 
@@ -3535,7 +3535,7 @@ class MainWindow(QMainWindow):
                 QLabel#qt_msgbox_label { color: #d0d0d0; }
                 QPushButton { background-color: #454545; color: #d0d0d0; }
             """)
-        except Exception:
+        except (AttributeError, RuntimeError, TypeError):
             pass
         msg_box.setWindowTitle(title)
         msg_box.setTextFormat(Qt.TextFormat.RichText)
@@ -3636,13 +3636,13 @@ class MainWindow(QMainWindow):
                 
                 # Show confirmation
                 QMessageBox.information(parent, "Copied", "Error message copied to clipboard!")
-            except Exception:
+            except (ImportError, pyperclip.PyperclipException, RuntimeError, OSError, TypeError):
                 # Fallback to Qt clipboard
                 try:
                     clipboard = QApplication.clipboard()
                     clipboard.setText(full_message)
                     QMessageBox.information(parent, "Copied", "Error message copied to clipboard!")
-                except Exception:
+                except (AttributeError, RuntimeError, TypeError):
                     QMessageBox.warning(parent, "Copy Failed", "Could not copy to clipboard.")
         
         return result
@@ -3701,12 +3701,12 @@ class MainWindow(QMainWindow):
                 import pyperclip
                 pyperclip.copy(text)
                 QMessageBox.information(parent, "Copied", "Message copied to clipboard!")
-            except Exception:
+            except (ImportError, pyperclip.PyperclipException, RuntimeError, OSError, TypeError):
                 try:
                     clipboard = QApplication.clipboard()
                     clipboard.setText(text)
                     QMessageBox.information(parent, "Copied", "Message copied to clipboard!")
-                except Exception:
+                except (AttributeError, RuntimeError, TypeError):
                     QMessageBox.warning(parent, "Copy Failed", "Could not copy to clipboard.")
         
         return result

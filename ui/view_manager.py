@@ -17,6 +17,7 @@ import os
 import json
 import uuid
 import time
+import logging
 from datetime import datetime
 import pandas as pd
 from PyQt6.QtWidgets import (
@@ -26,6 +27,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QCursor
+
+
+logger = logging.getLogger(__name__)
 
 
 class ViewManager:
@@ -51,8 +55,8 @@ class ViewManager:
             if os.path.exists(self.views_path):
                 with open(self.views_path, 'r') as f:
                     return json.load(f)
-        except Exception:
-            pass
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as e:
+            logger.warning("Failed to load views from %s: %s", self.views_path, e)
         return []
 
     def save_views(self):
@@ -60,8 +64,8 @@ class ViewManager:
         try:
             with open(self.views_path, 'w') as f:
                 json.dump(self.views, f, indent=2)
-        except Exception as e:
-            print(f"Failed to save views: {e}")
+        except (OSError, TypeError, ValueError) as e:
+            logger.error("Failed to save views to %s: %s", self.views_path, e)
 
     def add_view(self, view_spec):
         """Add a new dashboard view"""
@@ -86,7 +90,8 @@ class ViewManager:
             df = duckdb.query(query).to_df()
             self.populate_treeview(df)
             return df
-        except Exception as e:
+        except (duckdb.Error, OSError, ValueError) as e:
+            logger.warning("Failed to describe parquet view for %s: %s", filename, e)
             return None
 
     def populate_treeview(self, df, set_full=True, skip_large_prompt=False):
@@ -108,7 +113,7 @@ class ViewManager:
         # If dataset is large, ask user before loading the full DataFrame
         try:
             total_rows = int(getattr(df, 'shape', (0, 0))[0])
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             total_rows = 0
 
         LARGE_THRESHOLD = 100_000
@@ -178,7 +183,7 @@ class ViewManager:
         # Diagnostic: print the incoming column names (repr) so we can see hidden/control chars
         try:
             print("populate_treeview: incoming df.columns repr:", [repr(c) for c in df.columns])
-        except Exception:
+        except (AttributeError, TypeError):
             pass
 
         # Sanitize column names to remove trailing control characters that can confuse the UI
@@ -190,7 +195,7 @@ class ViewManager:
                 # If we stored full DF earlier, keep it consistent
                 if set_full:
                     self.current_full_df = df
-        except Exception:
+        except (AttributeError, TypeError, ValueError):
             pass
 
         # Create model and proxy
@@ -206,7 +211,7 @@ class ViewManager:
             self._model = model
             self._proxy = proxy
             self.last_df = df
-        except Exception:
+        except AttributeError:
             pass
 
         # Populate the filter column combo with column names for quick selection
@@ -215,7 +220,7 @@ class ViewManager:
             if hasattr(self, 'filter_column_combo'):
                 self.filter_column_combo.clear()
                 self.filter_column_combo.addItems(cols)
-        except Exception:
+        except (AttributeError, RuntimeError, TypeError):
             pass
 
         # Force columns to resize
@@ -225,7 +230,7 @@ class ViewManager:
         # Update the status label
         try:
             row_count = model.rowCount()
-        except Exception:
+        except (AttributeError, TypeError):
             row_count = 0
         now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         # If not already shown as preview, show full row count
@@ -241,7 +246,7 @@ class ViewManager:
                     try:
                         self.results_table.setSortingEnabled(False)
                         self.results_table.horizontalHeader().setSortIndicatorShown(False)
-                    except Exception:
+                    except (AttributeError, RuntimeError):
                         pass
                     # Show the enable-sorting button so the user can opt-in
                     self.enable_sorting_btn.setVisible(True)
@@ -250,11 +255,11 @@ class ViewManager:
                     try:
                         self.results_table.setSortingEnabled(True)
                         self.results_table.horizontalHeader().setSortIndicatorShown(True)
-                    except Exception:
+                    except (AttributeError, RuntimeError):
                         pass
                     self.enable_sorting_btn.setVisible(False)
-        except Exception:
-            pass
+        except (AttributeError, RuntimeError, TypeError):
+            logger.debug("Unable to update sorting controls", exc_info=True)
 
     def _compute_view_df_from_df(self, view_spec, df_file):
         """Compute dashboard view from DataFrame using pandas"""
