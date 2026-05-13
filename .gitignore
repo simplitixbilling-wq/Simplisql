@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+*.egg
+.installed.cfg
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+build/
+dist/
+*.spec.bak
+
+# Logs
+utils/Logs/*.log
+*.log
+
+# User data (generated at runtime)
+utils/ParquetFiles/*.parquet
+ParquetFiles/*.parquet
+Auto_Workflow/ai_chat_history.json
+utils/Auto_Workflow/saved_queries.json
+utils/Auto_Workflow/workflows.json
+
+# Models (large files - download separately)
+models/*.gguf
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/

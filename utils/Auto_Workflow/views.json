@@ -1,0 +1,24 @@
+[
+  {
+    "name": "Date wise summary",
+    "description": "",
+    "type": "pivot",
+    "base_parquet": "sample",
+    "index": [
+      "Date"
+    ],
+    "columns": [],
+    "values": [
+      "Balance"
+    ],
+    "agg": "sum",
+    "visualization": "pivot",
+    "refresh": {
+      "type": "on-open"
+    },
+    "created_from": "pivot_table_dialog",
+    "id": "866e843ee00646fbb316b8aeeb901b84",
+    "created_iso": "2026-05-01T06:40:51.319737Z",
+    "updated_iso": "2026-05-01T06:40:51.319737Z"
+  }
+]

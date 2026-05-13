@@ -1,0 +1,7 @@
+{
+  "openai_key": "",
+  "anthropic_key": "",
+  "gemini_key": "",
+  "selected_provider": "local",
+  "default_model": "gemma-4-4b"
+}
