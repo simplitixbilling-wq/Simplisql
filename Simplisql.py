@@ -3086,6 +3086,16 @@ class DuckDBQueryEditor(DataOperationDialogs, ViewManager, QueryManager, PythonE
         self.ai_assistant_dialog.raise_()
         self.ai_assistant_dialog.activateWindow()
 
+    def preload_ai_assistant(self):
+        """Initialize AI assistant in background so default model loads on app startup."""
+        try:
+            if not hasattr(self, 'ai_assistant_dialog') or self.ai_assistant_dialog is None:
+                self.ai_assistant_dialog = AIAssistantDialog(self)
+            # Keep it hidden until user explicitly opens AI assistant.
+            self.ai_assistant_dialog.hide()
+        except (AttributeError, RuntimeError, TypeError) as e:
+            logger.warning("AI assistant preload skipped: %s", e)
+
 
     def _duckdb_copy_from_parquet(self, src_parquet_path: str, dest_path: str, format: str = 'csv'):
         """Use DuckDB to copy data directly from a parquet file to CSV or Parquet on disk.
@@ -3458,10 +3468,12 @@ class MainWindow(QMainWindow):
         self.app_dir = get_app_dir()  # Fixed for PyInstaller compatibility
         self.query_editor = DuckDBQueryEditor(self, controller=self)
         self.layout.addWidget(self.query_editor)
+
+        # Preload AI backend at startup (hidden dialog) so the default model starts loading immediately.
+        QTimer.singleShot(0, self.query_editor.preload_ai_assistant)
         
         # Apply theme through the query editor's theme system after it's fully initialized
         # Use QTimer to defer this until after the event loop starts
-        from PyQt6.QtCore import QTimer
         QTimer.singleShot(0, self.apply_main_window_theme)
 
         self.conn = duckdb.connect(

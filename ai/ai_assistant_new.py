@@ -1505,11 +1505,24 @@ class AIAssistantDialog(QDialog):
         return _extract_python_candidates_from_text(response)
 
     def _copy_last_python_to_notepad(self):
-        """Extract last Python block from chat and paste it to the Python notepad."""
+        """Extract the entire last Python code block(s) from the most recent AI response and paste to the Python notepad."""
         text = self.chat_display.toPlainText()
-        candidates = self._extract_python_candidates(text)
+        # Find the last AI response in the chat history
+        lines = text.split('\n')
+        ai_start = -1
+        for i in range(len(lines) - 1, -1, -1):
+            if lines[i].strip().startswith('AI:'):
+                ai_start = i
+                break
+        if ai_start == -1:
+            QMessageBox.information(self, "No Python Found", "No AI response found in the chat.")
+            return
+        # Extract only the last AI response
+        ai_response = '\n'.join(lines[ai_start + 1:])
+        candidates = self._extract_python_candidates(ai_response)
         if candidates:
-            code = candidates[-1].strip()
+            # Concatenate all code blocks (if more than one)
+            code = '\n\n'.join([c.strip() for c in candidates if c.strip()])
             if code:
                 editor = self.parent_editor
                 # Switch to Python mode first
